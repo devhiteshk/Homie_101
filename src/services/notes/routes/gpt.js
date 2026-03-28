@@ -1,5 +1,12 @@
 const express = require('express');
-const Groq = require('groq-sdk');
+const { Ollama } = require('ollama');
+
+const ollama = new Ollama({
+  host: "https://ollama.com",
+  headers: {
+    Authorization: "Bearer " + process.env.OLLAMA_API_KEY,
+  },
+});
 
 const SYSTEM_PROMPT = `You are an AI assistant that generates Excalidraw canvas elements in JSON format.
 
@@ -81,12 +88,12 @@ module.exports = (protect) => {
   // POST /api/notes/chat
   router.post('/chat', protect, async (req, res) => {
     try {
-      const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-      const completion = await groq.chat.completions.create({
-        messages: [{ role: 'user', content: EXCALIDRAW_PROMPT + req.body.message + ' using excalidraw elements' }],
-        model: 'llama3-8b-8192',
+      const response = await ollama.chat({
+        model: 'gpt-oss:120b',
+        messages: [{ role: 'user', content: EXCALIDRAW_PROMPT + req.body.message }],
+        stream: false,
       });
-      const raw = completion.choices[0]?.message?.content || '{}';
+      const raw = response.message?.content || '{}';
       res.json(JSON.parse(raw));
     } catch (err) {
       res.status(500).json({ message: 'AI service error', error: err.message });
