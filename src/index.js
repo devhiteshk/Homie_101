@@ -2,16 +2,18 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const passport = require('passport');
+const cookieParser = require('cookie-parser');
 
 const app = express();
 app.set('trust proxy', 1);
 
 app.use(express.json());
+app.use(cookieParser());
 app.use(cors({
   origin: process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(',')
+    ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
     : ['http://localhost:5173'],
-  credentials: true,
+  credentials: true, // required for cookies cross-origin
 }));
 app.use(passport.initialize());
 
