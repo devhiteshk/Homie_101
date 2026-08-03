@@ -1,18 +1,24 @@
 const jwt = require('jsonwebtoken');
 
 const protect = (UserModel) => async (req, res, next) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'Not authorized' });
+  // Read token exclusively from HttpOnly cookie — never from Authorization header.
+  // This prevents XSS attacks from stealing the token via JS.
+  const token = req.cookies?.auth_token;
+
+  if (!token) {
+    return res.status(401).json({ message: 'Not authorized — no session cookie' });
   }
 
-  const token = authHeader.split(' ')[1];
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = await UserModel.findById(decoded.id).select('-password');
+    const user = await UserModel.findById(decoded.id).select('-password -googleId -githubId');
+    if (!user) return res.status(401).json({ message: 'Not authorized — user not found' });
+    req.user = user;
     next();
-  } catch {
-    return res.status(401).json({ message: 'Not authorized' });
+  } catch (err) {
+    // Token expired or tampered — clear the stale cookie
+    res.clearCookie('auth_token', { path: '/' });
+    return res.status(401).json({ message: 'Not authorized — session expired' });
   }
 };
 
